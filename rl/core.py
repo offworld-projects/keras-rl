@@ -52,7 +52,7 @@ class Agent(object):
 
     def fit(self, env, nb_steps, action_repetition=1, callbacks=None, verbose=1,
             visualize=False, nb_max_start_steps=0, start_step_policy=None, log_interval=10000,
-            nb_max_episode_steps=None):
+            nb_max_episode_steps=None, resume_episode_nr=None, resume_step_nr=None):
         """Trains the agent on the given environment.
 
         # Arguments
@@ -114,17 +114,25 @@ class Agent(object):
         self._on_train_begin()
         callbacks.on_train_begin()
 
-        episode = np.int16(0)
-        self.step = np.int16(0)
+        if not resume_episode_nr:
+            episode = np.int32(0)
+            self.step = np.int32(0)
+            self.episodes_completed = 0
+        else:
+            episode = np.int32(resume_episode_nr)
+            self.step = np.int32(resume_step_nr)
+            self.episodes_completed = np.int32(resume_episode_nr)
+        
+        self.interrupt = False
         observation = None
         episode_reward = None
         episode_step = None
         did_abort = False
         try:
-            while self.step < nb_steps:
+            while self.step < nb_steps and not self.interrupt:
                 if observation is None:  # start of a new episode
                     callbacks.on_episode_begin(episode)
-                    episode_step = np.int16(0)
+                    episode_step = np.int32(0)
                     episode_reward = np.float32(0)
 
                     # Obtain the initial observation by resetting the environment.
@@ -224,6 +232,7 @@ class Agent(object):
                     callbacks.on_episode_end(episode, episode_logs)
 
                     episode += 1
+                    self.episodes_completed += 1
                     observation = None
                     episode_step = None
                     episode_reward = None
