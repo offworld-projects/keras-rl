@@ -3,8 +3,10 @@ from __future__ import print_function
 import warnings
 import timeit
 import json
+import pickle
 from tempfile import mkdtemp
 
+import os
 import numpy as np
 
 from keras import __version__ as KERAS_VERSION
@@ -385,3 +387,52 @@ class ModelIntervalCheckpoint(Callback):
         if self.verbose > 0:
             print('Step {}: saving model to {}'.format(self.total_steps, filepath))
         self.model.save_weights(filepath, overwrite=True)
+
+class TerminateTrainingOnFileExists(Callback):
+
+    def __init__(self, agent, poisonfile):
+        super(TerminateTrainingOnFileExists, self).__init__()
+        self.poisonfile = poisonfile
+        self.agent = agent
+
+    def on_action_begin(self, action, logs):
+        if os.path.exists(self.poisonfile):
+            print("STOPPING THE LEARNING PROCESS")
+            self.agent.interrupt = True
+            os.remove(self.poisonfile)
+
+class SaveDQNTrainingState(Callback):
+    """
+    Save agent progress, memory and model weights
+    """
+
+    def __init__(self, interval, state_path, memory, dqn):
+        super(SaveDQNTrainingState, self).__init__()
+        self.interval = interval
+        self.state_path = state_path
+        self.memory = memory
+        self.dqn = dqn
+
+    def on_episode_end(self, episode, logs):
+        if self.dqn.episodes_completed > 0 and self.dqn.episodes_completed % self.interval == 0:
+            self.save_training_state(self.dqn.episodes_completed + 1)
+
+    def on_train_end(self, logs):
+        self.save_training_state(self.dqn.episodes_completed)
+
+    def save_training_state(self, episode_nr):
+        print("\nSaving the state of the agent... please wait")
+    
+        memdump = (self.memory, self.memory.actions, self.memory.rewards, self.memory.terminals, self.memory.observations)
+        memfile = open("%s/running_sim_dqn_memory.pkl" % self.state_path, "wb")
+        pickle.dump(memdump, memfile)
+        memfile.close()
+
+        self.dqn.model.save("%s/running_sim_dqn_model.h5" % self.state_path)
+
+        parametersdump = (episode_nr, self.dqn.step)
+        parametersfile = open("%s/running_sim_parameters.pkl" % self.state_path, "wb")
+        pickle.dump(parametersdump, parametersfile)
+        parametersfile.close()
+    
+        print("State of the agent has been saved.\n")
