@@ -406,12 +406,13 @@ class SaveDQNTrainingState(Callback):
     Save agent progress, memory and model weights
     """
 
-    def __init__(self, interval, state_path, memory, dqn):
+    def __init__(self, interval, state_path, prefix, memory, dqn):
         super(SaveDQNTrainingState, self).__init__()
         self.interval = interval
         self.state_path = state_path
         self.memory = memory
         self.dqn = dqn
+        self.prefix = prefix
 
     def on_episode_end(self, episode, logs):
         if self.dqn.episodes_completed > 0 and self.dqn.episodes_completed % self.interval == 0:
@@ -424,14 +425,14 @@ class SaveDQNTrainingState(Callback):
         print("\nSaving the state of the agent... please wait")
     
         memdump = (self.memory, self.memory.actions, self.memory.rewards, self.memory.terminals, self.memory.observations)
-        memfile = open("%s/running_sim_dqn_memory.pkl" % self.state_path, "wb")
+        memfile = open("%s/%s_dqn_memory.pkl" % (self.state_path, self.prefix), "wb")
         pickle.dump(memdump, memfile)
         memfile.close()
 
-        self.dqn.model.save("%s/running_sim_dqn_model.h5" % self.state_path)
+        self.dqn.model.save("%s/%s_dqn_model.h5" % (self.state_path, self.prefix))
 
         parametersdump = (episode_nr, self.dqn.step)
-        parametersfile = open("%s/running_sim_parameters.pkl" % self.state_path, "wb")
+        parametersfile = open("%s/%s_parameters.pkl" % (self.state_path, self.prefix), "wb")
         pickle.dump(parametersdump, parametersfile)
         parametersfile.close()
     
