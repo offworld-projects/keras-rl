@@ -8,6 +8,7 @@ from tempfile import mkdtemp
 
 import os
 import numpy as np
+import glob, shutil
 
 from keras import __version__ as KERAS_VERSION
 from keras.callbacks import Callback as KerasCallback, CallbackList as KerasCallbackList
@@ -406,13 +407,13 @@ class SaveDQNTrainingState(Callback):
     Save agent progress, memory and model weights
     """
 
-    def __init__(self, interval, state_path, prefix, memory, dqn):
+    def __init__(self, interval, state_path, memory, dqn, snapshot_limit=None):
         super(SaveDQNTrainingState, self).__init__()
         self.interval = interval
         self.state_path = state_path
         self.memory = memory
         self.dqn = dqn
-        self.prefix = prefix
+        self.snapshot_limit = snapshot_limit
 
     def on_episode_end(self, episode, logs):
         if (episode + 1) % self.interval == 0:
@@ -424,16 +425,23 @@ class SaveDQNTrainingState(Callback):
     def save_training_state(self, episode_nr):
         print("\nSaving the state of the agent... please wait")
     
+        if not os.path.exists("%s/episode-%d" % (self.state_path, episode_nr)): os.makedirs("%s/episode-%d" % (self.state_path, episode_nr))
+
         memdump = (self.memory, self.memory.actions, self.memory.rewards, self.memory.terminals, self.memory.observations)
-        memfile = open("%s/%s_dqn_memory.pkl" % (self.state_path, self.prefix), "wb")
+        memfile = open("%s/episode-%d/memory.pkl" % (self.state_path, episode_nr), "wb")
         pickle.dump(memdump, memfile)
         memfile.close()
 
-        self.dqn.model.save("%s/%s_dqn_model.h5" % (self.state_path, self.prefix))
+        self.dqn.model.save("%s/episode-%d/model.h5" % (self.state_path, episode_nr))
 
         parametersdump = (episode_nr, self.dqn.step)
-        parametersfile = open("%s/%s_parameters.pkl" % (self.state_path, self.prefix), "wb")
+        parametersfile = open("%s/episode-%d/parameters.pkl" % (self.state_path, episode_nr), "wb")
         pickle.dump(parametersdump, parametersfile)
         parametersfile.close()
     
+        # remove oldest snapshot if there is a limit
+        if self.snapshot_limit is not None and len(glob.glob("%s/episode-*" % (self.state_path))) > self.snapshot_limit:
+            oldest_episode = np.min([int(os.path.basename(s).replace("episode-", "")) for s in glob.glob("%s/episode-*" % self.state_path)])
+            shutil.rmtree("%s/episode-%d" % (self.state_path, oldest_episode))
+
         print("State of the agent has been saved.\n")
