@@ -415,11 +415,11 @@ class SaveDQNTrainingState(Callback):
         self.prefix = prefix
 
     def on_episode_end(self, episode, logs):
-        if self.dqn.episodes_completed > 0 and self.dqn.episodes_completed % self.interval == 0:
-            self.save_training_state(self.dqn.episodes_completed + 1)
+        if (episode + 1) % self.interval == 0:
+            self.save_training_state(episode + 1)
 
     def on_train_end(self, logs):
-        self.save_training_state(self.dqn.episodes_completed)
+        self.save_training_state(logs['episode'])
 
     def save_training_state(self, episode_nr):
         print("\nSaving the state of the agent... please wait")

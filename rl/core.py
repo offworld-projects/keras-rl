@@ -117,12 +117,10 @@ class Agent(object):
         if not resume_episode_nr:
             episode = np.int32(0)
             self.step = np.int32(0)
-            self.episodes_completed = 0
         else:
             episode = np.int32(resume_episode_nr)
             self.step = np.int32(resume_step_nr)
-            self.episodes_completed = np.int32(resume_episode_nr)
-        
+
         self.interrupt = False
         observation = None
         episode_reward = None
@@ -232,7 +230,6 @@ class Agent(object):
                     callbacks.on_episode_end(episode, episode_logs)
 
                     episode += 1
-                    self.episodes_completed += 1
                     observation = None
                     episode_step = None
                     episode_reward = None
@@ -241,7 +238,7 @@ class Agent(object):
             # This is so common that we've built this right into this function, which ensures that
             # the `on_train_end` method is properly called.
             did_abort = True
-        callbacks.on_train_end(logs={'did_abort': did_abort})
+        callbacks.on_train_end(logs={'did_abort': did_abort, 'episode': episode})
         self._on_train_end()
 
         return history
