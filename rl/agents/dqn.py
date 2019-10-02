@@ -1,5 +1,7 @@
 from __future__ import division
 import warnings
+import select
+import tty, termios, sys
 
 import keras.backend as K
 from keras.models import Model
@@ -738,6 +740,78 @@ class NAFAgent(AbstractDQNAgent):
             names += self.processor.metrics_names[:]
         return names
 
+
+class HumanDQNAgent(DQNAgent):
+    """DQN Agent with human in the loop policy
+
+    Allows human to control the actions of the agent for better weight initialization of the RL agent or 
+    assist the RL agent recover from a bad policy
+    """
+
+    def __init__(self, **kwargs):
+        super(HumanDQNAgent, self).__init__(**kwargs)
+
+        # Parameters
+        self.humanex = True
+
+    def getchar(self):
+        """Read character input from the keyboard
+        """
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch    
+
+    def keyboard_input(self):
+        """Determine action based on a keyboard input
+        """
+        print("Enter i,j,k,l for an action: ")
+        key = self.getchar()
+        if key == 'j': self.action = 0 # left
+        if key == 'l': self.action = 1 # right
+        if key == 'i': self.action = 2 # forward
+        if key == 'k': self.action = 3 # back
+        if key == 'd': pdb.set_trace() # enable debugging mode
+        if key == 'a': print("\nYou have switched to automatic mode, opportunity go back manual will present itself every 1000 steps.\n")
+
+    def forward(self, observation):
+        """Allow human control in the default forward function
+        """
+        state = self.memory.get_recent_state(observation)
+        q_values = self.compute_q_values(state)
+        if self.training:
+            # Select human action or policy action.
+            # Default behavtion is human action, which can be switched at a later stage
+            if self.humanex:
+                self.keyboard_input()
+                action = self.action
+            else:  
+                action = self.policy.select_action(q_values=q_values)
+
+            # Allow change of control mode every 1000 steps
+            if self.step > 1 and self.step % 1000 == 0:
+                print("\nWould you like to switch modes? You have 7 seconds to press 'm' for manual or 'a' for automatic, followed by Enter to do that.")
+                sys.stdout.flush()
+                ready, _, _ = select.select([sys.stdin], [],[], 7)
+                if ready:
+                    key = sys.stdin.readline().rstrip('\n') # expect stdin to be line-buffered
+                    if key == 'm':
+                        self.humanex = True
+                    else:
+                        self.humanex = False
+
+        else:
+            action = self.test_policy.select_action(q_values=q_values)
+
+        # Book-keeping.
+        self.recent_observation = observation
+        self.recent_action = action
+
+        return action
 
 # Aliases
 ContinuousDQNAgent = NAFAgent
