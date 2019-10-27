@@ -2,6 +2,7 @@ from __future__ import division
 from collections import deque
 import os
 import warnings
+import math
 
 import numpy as np
 import keras.backend as K
@@ -314,3 +315,296 @@ class DDPGAgent(Agent):
             self.update_target_models_hard()
 
         return metrics
+
+class HALGANDDPGAgent(DDPGAgent):
+
+    def select_action(self, state):
+        img_batch, config_batch = self.process_state_batch([state])
+        action = self.actor.predict_on_batch(img_batch).flatten()
+
+        # Apply noise, if a random process is set.
+        if self.training and self.random_process is not None:
+            noise = self.random_process.sample()
+            action += noise
+        # now clip the action
+        action = np.clip(action, a_max=self.action_box[1], a_min=self.action_box[0])
+        # sometime action is just epsilon greedy
+        random_action = np.random.uniform(low=self.action_box[0], high=self.action_box[1])
+        action += np.random.binomial(1, self.eps(self.step), action.shape[0])*(random_action - action)
+        return action
+
+    def configure_gan(self, generator, latent_size, filepath):
+        self.generator = generator
+        self.generator.load_weights(filepath)
+        self.gan_latent_size = latent_size
+
+    def convert_config(self, config_current, config_final):
+        if self.ENV_NAME == 'MiniWorld-SimToReal2Cont-v0':
+            x1, y1, yaw1, grip1 = config_final
+            x2, y2, yaw2, grip2 = config_current
+        if self.ENV_NAME == 'MiniWorld-SimToReal1Cont-v0':
+            x1, y1, yaw1 = config_final
+            x2, y2, yaw2 = config_current
+        dist = math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2))
+        if abs(x2-x1) < 1e-3:
+            if abs(y2-y1) < 1e-3:
+                dist=0.
+                angle = yaw2-yaw1
+                if angle < 0:
+                    angle += 2*math.pi
+                if angle > math.pi:
+                    angle -= 2*math.pi
+                if self.ENV_NAME == 'MiniWorld-SimToReal2Cont-v0':
+                    return dist, angle, 1-(grip1-grip2)  # it's the same x,y location
+                else:
+                    return dist, angle  # it's the same x,y location
+            if y2 > (y1 + .1):
+                theta = 3*math.pi/2
+            else:
+                theta = math.pi/2
+        else:
+            theta = math.atan((y1-y2)/(x1-x2))
+        # first convert theta to [0,2pi]
+        if x1 < x2:
+            theta += math.pi
+        if theta < 0:
+            theta += 2*math.pi
+        angle = theta - yaw2 # relative angle of viewing the goal
+        # center it [-pi, pi]
+        if angle < 0:
+            angle += 2*math.pi
+        if angle > math.pi:
+            angle -= 2*math.pi
+        if self.ENV_NAME == 'MiniWorld-SimToReal2Cont-v0':
+            return dist, angle, 1-(grip1-grip2)
+        else:
+            return dist, angle #it's the same x,y location
+
+    def generate_hallucinations(self, chunk):
+        '''
+        arguments:
+            chunk: list of [states, actions] of failed transitions
+            that pass the acceptance criteria
+        '''
+        fail0, config0 = zip(*[chunk[i][0][0] for i in range(len(chunk))])
+        fail0 = np.array(fail0)
+        config0 = np.array(config0)
+        fail1, config1 = zip(*[chunk[i][0][1] for i in range(len(chunk))])
+        fail1 = np.array(fail1)
+        config1 = np.array(config1)
+        fail_last, config_last = zip(*[chunk[i][0][-1] for i in range(len(chunk))])
+        fail_last = np.array(fail_last)
+        config_last = np.array(config_last)
+        if self.mode == 'halgan':
+            # GANs are trained with states in range [-1,1], but states here
+            # are [0,1], so we convert back and forth
+            fail0 = (fail0*2)-1
+            fail1 = (fail1*2)-1
+            # get relative config to last state in chunk
+            config0 = np.array([self.convert_config(config0[i,:], config_last[i,:]) for i in range(len(chunk))])
+            config1 = np.array([self.convert_config(config1[i,:], config_last[i,:]) for i in range(len(chunk))])
+            if self.ENV_NAME == 'MiniWorld-SimToReal2Cont-v0':
+                # randomly decide what is being hallucinated
+                config0[:,-1] = np.random.randint(0,2,size=config0.shape[0])
+                config1[:,-1] = config0[:,-1]
+            generated_images = self.generator.predict([
+                np.random.normal(1., .1, (2*len(chunk), self.gan_latent_size)),
+                np.concatenate((config0, config1), axis=0)])
+            # add in the diffs to create states
+            fake0 = fail0 + generated_images[0:len(chunk)]
+            fake0 = np.tanh(fake0)
+            fake1 = fail1 + generated_images[len(chunk):]
+            fake1 = np.tanh(fake1)
+            # now convert generated images back to [0,1]
+            fake0 = (fake0+1)/2
+            fake1 = (fake1+1)/2
+            fake_done = np.zeros((len(chunk),))
+            fake_done[self.fake_done_criteria(config1)] = 1.
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward[np.where(fake_done)[0]] = 1.
+        elif self.mode == 'rig-':
+            # the fakes are the same as the fails
+            fake0=fail0.copy()
+            fake1=fail1.copy()
+            # the reward is decided by the encoder mean distance
+            en0 = self.encoder.predict([fake0,])[0]
+            en1 = self.encoder.predict([fake1,])[0]
+            # compare distance to random images from near goal
+            idxs = np.random.randint(0, len(self.near_goal), size=len(chunk))
+            eng = self.encoder.predict(np.array([self.near_goal[i] for i in idxs]))[0]
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward += -0.1*np.linalg.norm(np.array([self.labels[i] for i in idxs]), axis=1)*np.linalg.norm((eng-en1),axis=1)
+            fake_done = np.zeros((len(chunk),))
+        elif self.mode == 'vae-her':
+            # the fakes are the same as the fails
+            fake0=fail0.copy()
+            fake1=fail1.copy()
+            fake_last = fail_last.copy()
+            # the reward is decided by the encoder mean distance
+            en0 = self.encoder.predict([fake0,])[0]
+            en1 = self.encoder.predict([fake1,])[0]
+            en_last = self.encoder.predict([fake_last,])[0]
+            # compare distance to last image in trajectory
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward += -np.linalg.norm((en_last-en1),axis=1)
+            fake_done = np.zeros((len(chunk),))
+            config1 = np.array([self.convert_config(config1[i,:], config_last[i,:]) for i in range(len(chunk))])
+            fake_done[self.fake_done_criteria(config1)] = 1.
+        elif self.mode == 'her':
+            # no modification to the images are done
+            fake0=fail0.copy()
+            fake1=fail1.copy()
+            # everything else the same as vher
+            # reward is assigned by relative configuration to final state
+            config0 = np.array([self.convert_config(config0[i,:], config_last[i,:]) for i in range(len(chunk))])
+            config1 = np.array([self.convert_config(config1[i,:], config_last[i,:]) for i in range(len(chunk))])
+            fake_done = np.zeros((len(chunk),))
+            fake_done[self.fake_done_criteria(config1)] = 1.
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward[np.where(fake_done)[0]] = 1.
+        else:
+            raise NotImplementedError
+        fake_action = np.array([chunk[i][1] for i in range(len(chunk))])
+
+        return fake0, fake1, fake_action, fake_reward, fake_done
+
+    def fake_done_criteria(self, rel_config):
+        if self.ENV_NAME == 'MiniWorld-SimToReal1Cont-v0':
+            return np.where(np.logical_and(rel_config[:,0] < 0.01, abs(rel_config[:,1]) < 0.1))[0]
+        elif self.ENV_NAME == 'MiniWorld-SimToReal2Cont-v0':
+            return np.where(rel_config[:,-1]*np.logical_and(rel_config[:,0] < 0.01, abs(rel_config[:,1]) < 0.1))[0]
+
+    def acceptance_criteria(self, states, rewards, terminals):
+        '''
+        check whether to accept sequence for hallucination.
+        return: False if any of the states achieve the goal or terminate.
+        False if starting state is too close to goal state.
+        '''
+        fail0, config0 = states[0]
+        config0 = np.array(config0)
+        fail1, config1 = states[1]
+        config1 = np.array(config1)
+        fail_last, config_last = states[-1]
+        config_last = np.array(config_last)
+        # get relative config to last state in chunk
+        config0 = np.array(self.convert_config(config0, config_last))
+        config1 = np.array(self.convert_config(config1, config_last))
+        if config0[0]<0.01:
+            return False
+        elif any(terminals):
+            return False
+        elif any([r > 0 for r in rewards]):
+            return False
+        return True
+
+    def backward(self, reward, terminal=False):
+        # Store most recent experience in memory.
+        if self.step % self.memory_interval == 0:
+            self.memory.append(self.recent_observation, self.recent_action, reward, terminal,
+                               training=self.training)
+
+        metrics = [np.nan for _ in self.metrics_names]
+        if not self.training:
+            # We're done here. No need to update the experience memory since we only use the working
+            # memory to obtain the state over the most recent observations.
+            return metrics
+
+        # Train the network on a single stochastic batch.
+        can_train_either = self.step > self.nb_steps_warmup_critic or self.step > self.nb_steps_warmup_actor
+        if can_train_either and self.step % self.train_interval == 0:
+            # draw batch_size random numbers
+            p = np.random.uniform(size=self.batch_size)
+            num_hallucinated_samples = int(np.sum(p < self.percent_hallucination(self.step)/100.))
+            experiences = self.memory.sample(self.batch_size - num_hallucinated_samples)
+            # Start by extracting the necessary parameters (we use a vectorized implementation).
+            state0_batch = []
+            reward_batch = []
+            action_batch = []
+            terminal1_batch = []
+            state1_batch = []
+            for e in experiences:
+                state0_batch.append(e.state0)
+                state1_batch.append(e.state1)
+                reward_batch.append(e.reward)
+                action_batch.append(e.action)
+                terminal1_batch.append(0. if e.terminal1 else 1.)
+            state0_batch, config0_batch = self.process_state_batch(state0_batch)
+            state1_batch, config1_batch = self.process_state_batch(state1_batch)
+
+            real_rewards = np.sum(np.array(reward_batch))
+            if num_hallucinated_samples > 0:
+                # pick how many steps before goal transition do you wanna be?
+                dist_to_goal = np.random.randint(0, self.max_dist_to_goal, size=num_hallucinated_samples)
+                # now sample hallucinations
+                chunks = self.memory.sample_failed_triplets(
+                    num_hallucinated_samples,
+                    dist_to_goal+1,
+                    self.acceptance_criteria)
+                fake0, fake1, fake_action, fake_reward, fake_done =\
+                    self.generate_hallucinations(chunks)
+                state0_batch = np.concatenate((state0_batch, fake0))
+                state1_batch = np.concatenate((state1_batch, fake1))
+                reward_batch = np.concatenate((reward_batch, fake_reward))
+                action_batch = np.concatenate((action_batch, fake_action))
+                terminal1_batch = np.concatenate((terminal1_batch, 1.-fake_done))
+
+            hallucinated_rewards = np.sum(np.array(reward_batch)) - real_rewards
+            # Prepare and validate parameters.
+            terminal1_batch = np.array(terminal1_batch)
+            reward_batch = np.array(reward_batch)
+            action_batch = np.array(action_batch)
+            assert reward_batch.shape == (self.batch_size,)
+            assert terminal1_batch.shape == reward_batch.shape
+            assert action_batch.shape == (self.batch_size, self.nb_actions)
+
+            # Update critic, if warm up is over.
+            if self.step > self.nb_steps_warmup_critic:
+                target_actions = self.target_actor.predict_on_batch(state1_batch)
+                assert target_actions.shape == (self.batch_size, self.nb_actions)
+                if len(self.critic.inputs) >= 3:
+                    state1_batch_with_action = state1_batch[:]
+                else:
+                    state1_batch_with_action = [state1_batch]
+                state1_batch_with_action.insert(self.critic_action_input_idx, target_actions)
+                target_q_values = self.target_critic.predict_on_batch(state1_batch_with_action).flatten()
+                assert target_q_values.shape == (self.batch_size,)
+
+                # Compute r_t + gamma * max_a Q(s_t+1, a) and update the target ys accordingly,
+                # but only for the affected output units (as given by action_batch).
+                discounted_reward_batch = self.gamma * target_q_values
+                discounted_reward_batch *= terminal1_batch
+                assert discounted_reward_batch.shape == reward_batch.shape
+                targets = (reward_batch + discounted_reward_batch).reshape(self.batch_size, 1)
+
+                # Perform a single batch update on the critic network.
+                if len(self.critic.inputs) >= 3:
+                    state0_batch_with_action = state0_batch[:]
+                else:
+                    state0_batch_with_action = [state0_batch]
+                state0_batch_with_action.insert(self.critic_action_input_idx, action_batch)
+                metrics = self.critic.train_on_batch(state0_batch_with_action, targets)
+                if self.processor is not None:
+                    metrics += self.processor.metrics
+                metrics += [real_rewards, hallucinated_rewards, self.eps(self.step),]
+
+            # Update actor, if warm up is over.
+            if self.step > self.nb_steps_warmup_actor:
+                # TODO: implement metrics for actor
+                if len(self.actor.inputs) >= 2:
+                    inputs = state0_batch[:]
+                else:
+                    inputs = [state0_batch]
+                if self.uses_learning_phase:
+                    inputs += [self.training]
+                action_values = self.actor_train_fn(inputs)[0]
+                assert action_values.shape == (self.batch_size, self.nb_actions)
+
+        if self.target_model_update >= 1 and self.step % self.target_model_update == 0:
+            self.update_target_models_hard()
+
+        return metrics
+    @property
+    def metrics_names(self):
+        '''add the gan rewards related metrics'''
+        return super(HALGANDDPGAgent, self).metrics_names + \
+                ['real_sampled_rewards', 'hallucinated_sampled_rewards', 'mean eps',]

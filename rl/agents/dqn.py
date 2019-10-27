@@ -1,5 +1,9 @@
 from __future__ import division
 import warnings
+import imageio
+import os
+import math
+from scipy.misc import imresize
 
 import keras.backend as K
 from keras.models import Model
@@ -367,6 +371,312 @@ class DQNAgent(AbstractDQNAgent):
     def test_policy(self, policy):
         self.__test_policy = policy
         self.__test_policy._set_agent(self)
+
+class HALGANDQNAgent(DQNAgent):
+    '''
+    Implementation of DQN based HALGAN agent.
+    '''
+
+    def configure_gan(self, generator, latent_size, filepath):
+        self.generator = generator
+        self.generator.load_weights(filepath)
+        self.gan_latent_size = latent_size
+
+    def add_success_replay(self, success_dir):
+        n = len(os.listdir(os.path.join(success_dir)))
+        self.success_replay = []
+        for i in range(n):
+            transitions = []
+            for j in range(self.max_dist_to_goal+1):
+                try:
+                    transitions.append(imresize(imageio.imread(os.path.join(success_dir, '{}/{}.png'.format(i, j))), (64,64)))
+                except OSError:
+                    pass
+            actions = np.load(os.path.join(success_dir, '{}/actions.npy'.format(i)))
+            try:
+                assert(actions.shape[0]+1  == len(transitions))
+            except:
+                import pdb; pdb.set_trace()
+            self.success_replay.append((transitions, actions))
+
+    def convert_config(self,config_current, config_final):
+        x1, y1, yaw1 = config_final
+        x2, y2, yaw2 = config_current
+        dist = math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2))
+        if abs(x2-x1) < 1e-3:
+            if abs(y2-y1) < 1e-3:
+                dist=0.
+                angle = yaw2-yaw1
+                if angle < 0:
+                    angle += 2*math.pi
+                if angle > math.pi:
+                    angle -= 2*math.pi
+                return dist, angle #it's the same x,y location
+            if y2 > (y1 + .1):
+                theta = 3*math.pi/2
+            else:
+                theta = math.pi/2
+        else:
+            theta = math.atan((y1-y2)/(x1-x2))
+        # first convert theta to [0,2pi]
+        if x1 < x2:
+            theta += math.pi
+        if theta < 0:
+            theta += 2*math.pi
+
+        angle = theta - yaw2 # relative angle of viewing the goal
+        # center it [-pi, pi]
+        if angle < 0:
+            angle += 2*math.pi
+        if angle > math.pi:
+            angle -= 2*math.pi
+        return dist, angle
+
+    def generate_hallucinations(self, chunk):
+        '''
+        arguments:
+            chunk: list of [states, actions] of failed transitions that are not terminal
+            chunck_length long
+        '''
+        fail0, config0 = zip(*[chunk[i][0][0] for i in range(len(chunk))])
+        fail0 = np.array(fail0)
+        config0 = np.array(config0)
+        fail1, config1 = zip(*[chunk[i][0][1] for i in range(len(chunk))])
+        fail1 = np.array(fail1)
+        config1 = np.array(config1)
+        fail_last, config_last = zip(*[chunk[i][0][-1] for i in range(len(chunk))])
+        fail_last = np.array(fail_last)
+        config_last = np.array(config_last)
+        if self.mode == 'halgan':
+            # GANs are trained with states in range [-1,1], but states here
+            # are [0,1], so we convert back and forth
+            fail0 = (fail0*2)-1
+            fail1 = (fail1*2)-1
+            # configs in this environment are [x,y,vel,yaw,rot], but for
+            # GAN we only need [x,y,yaw]
+            if config0.shape[1] > 3:
+                config0 = config0[:, [0,1,3]]
+                config1 = config1[:, [0,1,3]]
+                config_last = config_last[:, [0,1,3]]
+
+            # get relative config to last state in chunk
+            config0 = np.array([self.convert_config(config0[i,:], config_last[i,:]) for i in range(len(chunk))])
+            config1 = np.array([self.convert_config(config1[i,:], config_last[i,:]) for i in range(len(chunk))])
+            generated_images = self.generator.predict([
+                np.random.normal(1., .1, (2*len(chunk), self.gan_latent_size)),
+                np.concatenate((config0, config1), axis=0)])
+            # add in the diffs to create states
+            fake0 = fail0 + generated_images[0:len(chunk)]
+            fake0 = np.tanh(fake0)
+            fake1 = fail1 + generated_images[len(chunk):]
+            fake1 = np.tanh(fake1)
+            # now convert generated images back to [0,1]
+            fake0 = (fake0+1)/2
+            fake1 = (fake1+1)/2
+            # now the rest of the transition
+            fake_done = np.zeros((len(chunk),))
+            fake_done[self.fake_done_criteria(config1)] = 1.
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward[np.where(fake_done)[0]] = 1.
+        elif self.mode == 'rig-':
+            # the fakes are the same as the fails
+            fake0=fail0.copy()
+            fake1=fail1.copy()
+            # the reward is decided by the encoder mean distance
+            en0 = self.encoder.predict([fake0,])[0]
+            en1 = self.encoder.predict([fake1,])[0]
+            # compare distance to random images from near goal
+            idxs = np.random.randint(0, len(self.near_goal), size=len(chunk))
+            eng = self.encoder.predict(np.array([self.near_goal[i] for i in idxs]))[0]
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward += -0.02*np.linalg.norm((eng-en1),axis=1)
+            fake_done = np.zeros((len(chunk),))
+        elif self.mode == 'vae-her':
+            # the fakes are the same as the fails
+            fake0=fail0.copy()
+            fake1=fail1.copy()
+            fake_last = fail_last.copy()
+            # the reward is decided by the encoder mean distance
+            en0 = self.encoder.predict([fake0,])[0]
+            en1 = self.encoder.predict([fake1,])[0]
+            en_last = self.encoder.predict([fake_last,])[0]
+            fake_reward = np.array([chunk[i][2] for i in range(len(chunk))])
+            fake_reward += -np.linalg.norm((en_last-en1),axis=1)
+            fake_done = np.zeros((len(chunk),))
+            config1 = np.array([self.convert_config(config1[i,:], config_last[i,:]) for i in range(len(chunk))])
+            fake_done[self.fake_done_criteria(config1)] = 1.
+
+        fake_action = np.array([chunk[i][1] for i in range(len(chunk))])
+        return fake0, fake1, fake_action, fake_reward, fake_done
+
+    def fake_done_criteria(self, rel_config):
+        if self.ENV_NAME == 'MiniWorld-SimToReal1-v0':
+            return np.where(rel_config[:,0] < 0.01)[0]
+
+    def compute_batch_q_values(self, state_batch):
+        '''same as base class except ignores the config batch'''
+        img_batch, config_batch = self.process_state_batch(state_batch)
+        q_values = self.model.predict_on_batch(img_batch)
+        assert q_values.shape == (len(state_batch), self.nb_actions)
+        return q_values
+
+    def forward(self, observation):
+        # Select an action.
+        state = self.memory.get_recent_state(observation)
+        q_values = self.compute_q_values(state)
+        if self.training:
+            action = self.policy.select_action(q_values=q_values)
+        else:
+            action = self.test_policy.select_action(q_values=q_values)
+
+        # Book-keeping.
+        self.recent_observation = observation
+        self.recent_action = action
+
+        return action
+
+    def acceptance_criteria(self, states, rewards, terminals):
+        '''check whether to accept sequence for hallucination'''
+        fail0, config0 = states[0]
+        config0 = np.array(config0)
+        fail1, config1 = states[1]
+        config1 = np.array(config1)
+        fail_last, config_last = states[-1]
+        config_last = np.array(config_last)
+        # get relative config to last state in chunk
+        config0 = np.array(self.convert_config(config0, config_last))
+        config1 = np.array(self.convert_config(config1, config_last))
+        if config0[0]<0.01:
+            return False
+        elif any(terminals):
+            return False
+        elif any([r > 0 for r in rewards]):
+            return False
+        return True
+
+    def backward(self, reward, terminal, wasFault=False):
+        # Store most recent experience in memory.
+        if (not wasFault) and self.step % self.memory_interval == 0:
+            self.memory.append(self.recent_observation, self.recent_action, reward, terminal,
+                               training=self.training)
+
+        metrics = [np.nan for _ in self.metrics_names]
+        if not self.training:
+            # We're done here. No need to update the experience memory since we only use the working
+            # memory to obtain the state over the most recent observations.
+            return metrics
+
+        # Train the network on a single stochastic batch.
+        if self.step > self.nb_steps_warmup and self.step % self.train_interval == 0:
+            # draw batch_size random numbers
+            p = np.random.uniform(size=self.batch_size)
+            num_hallucinated_samples = int(np.sum(p < self.percent_hallucination(self.step)/100.))
+            # sample a % of normal experiences
+            experiences = self.memory.sample(self.batch_size - num_hallucinated_samples)
+            # Start by extracting the necessary parameters (we use a vectorized implementation).
+            state0_batch = []
+            reward_batch = []
+            action_batch = []
+            terminal1_batch = []
+            state1_batch = []
+            for e in experiences:
+                state0_batch.append(e.state0)
+                state1_batch.append(e.state1)
+                reward_batch.append(e.reward)
+                action_batch.append(e.action)
+                terminal1_batch.append(0. if e.terminal1 else 1.)
+            state0_batch, config0_batch = self.process_state_batch(state0_batch)
+            state1_batch, config1_batch = self.process_state_batch(state1_batch)
+
+            real_rewards = np.sum(np.array(reward_batch))
+            if num_hallucinated_samples > 0:
+                # pick how many steps before goal transition do you wanna be?
+                dist_to_goal = np.random.randint(0, self.max_dist_to_goal, size=num_hallucinated_samples)
+                # now sample hallucinations
+                chunks = self.memory.sample_failed_triplets(
+                    num_hallucinated_samples,
+                    dist_to_goal+1,
+                    self.acceptance_criteria)
+                fake0, fake1, fake_action, fake_reward, fake_done =\
+                    self.generate_hallucinations(chunks)
+                state0_batch = np.concatenate((state0_batch, fake0))
+                state1_batch = np.concatenate((state1_batch, fake1))
+                reward_batch = np.concatenate((reward_batch, fake_reward))
+                action_batch = np.concatenate((action_batch, fake_action))
+                terminal1_batch = np.concatenate((terminal1_batch, 1.-fake_done))
+
+            hallucinated_rewards = np.sum(np.array(reward_batch))
+
+            terminal1_batch = np.array(terminal1_batch)
+            reward_batch = np.array(reward_batch)
+            action_batch = np.array(action_batch)
+            assert reward_batch.shape == (self.batch_size,)
+            assert terminal1_batch.shape == reward_batch.shape
+            assert len(action_batch) == len(reward_batch)
+
+            # Compute Q values for mini-batch update.
+            if self.enable_double_dqn:
+                # According to the paper "Deep Reinforcement Learning with Double Q-learning"
+                # (van Hasselt et al., 2015), in Double DQN, the online network predicts the actions
+                # while the target network is used to estimate the Q value.
+                q_values = self.model.predict_on_batch(state1_batch)
+                assert q_values.shape == (self.batch_size, self.nb_actions)
+                actions = np.argmax(q_values, axis=1)
+                assert actions.shape == (self.batch_size,)
+
+                # Now, estimate Q values using the target network but select the values with the
+                # highest Q value wrt to the online model (as computed above).
+                target_q_values = self.target_model.predict_on_batch(state1_batch)
+                assert target_q_values.shape == (self.batch_size, self.nb_actions)
+                q_batch = target_q_values[range(self.batch_size), actions]
+            else:
+                # Compute the q_values given state1, and extract the maximum for each sample in the batch.
+                # We perform this prediction on the target_model instead of the model for reasons
+                # outlined in Mnih (2015). In short: it makes the algorithm more stable.
+                target_q_values = self.target_model.predict_on_batch(state1_batch)
+                assert target_q_values.shape == (self.batch_size, self.nb_actions)
+                q_batch = np.max(target_q_values, axis=1).flatten()
+            assert q_batch.shape == (self.batch_size,)
+
+            targets = np.zeros((self.batch_size, self.nb_actions))
+            dummy_targets = np.zeros((self.batch_size,))
+            masks = np.zeros((self.batch_size, self.nb_actions))
+
+            # Compute r_t + gamma * max_a Q(s_t+1, a) and update the target targets accordingly,
+            # but only for the affected output units (as given by action_batch).
+            discounted_reward_batch = self.gamma * q_batch
+            # Set discounted reward to zero for all states that were terminal.
+            discounted_reward_batch *= terminal1_batch
+            assert discounted_reward_batch.shape == reward_batch.shape
+            Rs = reward_batch + discounted_reward_batch
+            for idx, (target, mask, R, action) in enumerate(zip(targets, masks, Rs, action_batch)):
+                target[action] = R  # update action with estimated accumulated reward
+                dummy_targets[idx] = R
+                mask[action] = 1.  # enable loss for this specific action
+            targets = np.array(targets).astype('float32')
+            masks = np.array(masks).astype('float32')
+
+            # Finally, perform a single update on the entire batch. We use a dummy target since
+            # the actual loss is computed in a Lambda layer that needs more complex input. However,
+            # it is still useful to know the actual target to compute metrics properly.
+            ins = [state0_batch] if type(self.model.input) is not list else state0_batch
+            metrics = self.trainable_model.train_on_batch(ins + [targets, masks], [dummy_targets, targets])
+            metrics = [metric for idx, metric in enumerate(metrics) if idx not in (1, 2)]  # throw away individual losses
+            metrics += self.policy.metrics
+            if self.processor is not None:
+                metrics += self.processor.metrics
+            metrics += [real_rewards, hallucinated_rewards,]
+
+        if self.target_model_update >= 1 and self.step % self.target_model_update == 0:
+            self.update_target_model_hard()
+
+        return metrics
+
+    @property
+    def metrics_names(self):
+        '''add the gan rewards related metrics'''
+        return super(HALGANDQNAgent, self).metrics_names + \
+                ['real_sampled_rewards', 'hallucinated_sampled_rewards',]
 
 
 class NAFLayer(Layer):

@@ -135,7 +135,7 @@ class TrainEpisodeLogger(Callback):
         self.train_start = timeit.default_timer()
         self.metrics_names = self.model.metrics_names
         print('Training for {} steps ...'.format(self.params['nb_steps']))
-        
+
     def on_train_end(self, logs):
         """ Print training time at end of training """
         duration = timeit.default_timer() - self.train_start
@@ -169,7 +169,7 @@ class TrainEpisodeLogger(Callback):
                 except Warning:
                     value = '--'
                     metrics_template += '{}: {}'
-                metrics_variables += [name, value]          
+                metrics_variables += [name, value]
         metrics_text = metrics_template.format(*metrics_variables)
 
         nb_step_digits = str(int(np.ceil(np.log10(self.params['nb_steps']))) + 1)
@@ -250,7 +250,7 @@ class TrainIntervalLogger(Callback):
                     assert means.shape == (len(self.metrics_names),)
                     for name, mean in zip(self.metrics_names, means):
                         formatted_metrics += ' - {}: {:.3f}'.format(name, mean)
-                
+
                 formatted_infos = ''
                 if len(self.infos) > 0:
                     infos = np.array(self.infos)
@@ -276,7 +276,8 @@ class TrainIntervalLogger(Callback):
         self.step += 1
         self.metrics.append(logs['metrics'])
         if len(self.info_names) > 0:
-            self.infos.append([logs['info'][k] for k in self.info_names])
+            if logs['info'] is not None and len(logs['info']) == self.info_names:
+                self.infos.append([np.sum(logs['info'][k]) for k in logs['info']])
 
     def on_episode_end(self, episode, logs):
         """ Update reward value at the end of each episode """
@@ -310,7 +311,7 @@ class FileLogger(Callback):
         self.starts[episode] = timeit.default_timer()
 
     def on_episode_end(self, episode, logs):
-        """ Compute and print metrics at the end of each episode """ 
+        """ Compute and print metrics at the end of each episode """
         duration = timeit.default_timer() - self.starts[episode]
 
         metrics = self.metrics[episode]
@@ -337,7 +338,8 @@ class FileLogger(Callback):
 
     def on_step_end(self, step, logs):
         """ Append metric at the end of each step """
-        self.metrics[logs['episode']].append(logs['metrics'])
+        if 'metrics' in logs:
+            self.metrics[logs['episode']].append(logs['metrics'])
 
     def save_data(self):
         """ Save metrics in a json file """

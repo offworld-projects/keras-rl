@@ -87,7 +87,7 @@ def zeroed_observation(observation):
 
     # Argument
         observation (list): List of observation
-    
+
     # Return
         A np.ndarray of zeros with observation.shape
     """
@@ -145,7 +145,7 @@ class Memory(object):
 
     def get_config(self):
         """Return configuration (window_length, ignore_episode_boundaries) for Memory
-        
+
         # Return
             A dict with keys window_length and ignore_episode_boundaries
         """
@@ -158,7 +158,7 @@ class Memory(object):
 class SequentialMemory(Memory):
     def __init__(self, limit, **kwargs):
         super(SequentialMemory, self).__init__(**kwargs)
-        
+
         self.limit = limit
 
         # Do not use deque to implement the memory. This data structure may seem convenient but
@@ -190,6 +190,7 @@ class SequentialMemory(Memory):
             batch_idxs = sample_batch_indexes(
                 self.window_length, self.nb_entries - 1, size=batch_size)
         batch_idxs = np.array(batch_idxs) + 1
+        batch_idxs = [int(idx) for idx in batch_idxs]
         assert np.min(batch_idxs) >= self.window_length + 1
         assert np.max(batch_idxs) < self.nb_entries
         assert len(batch_idxs) == batch_size
@@ -246,9 +247,9 @@ class SequentialMemory(Memory):
             action (int): Action taken to obtain this observation
             reward (float): Reward obtained by taking this action
             terminal (boolean): Is the state terminal
-        """ 
+        """
         super(SequentialMemory, self).append(observation, action, reward, terminal, training=training)
-        
+
         # This needs to be understood as follows: in `observation`, take `action`, obtain `reward`
         # and weather the next state is `terminal` or not.
         if training:
@@ -348,3 +349,33 @@ class EpisodeParameterMemory(Memory):
         config = super(SequentialMemory, self).get_config()
         config['limit'] = self.limit
         return config
+
+
+class HALGANMemory(PersistentMemory):
+
+    def sample_failed_triplets(self, num_samples, chunk_length, criteria_checker):
+        '''returns triplet of a transition and a future state which is the goal
+        '''
+        # only works for single image states for now
+        assert self.window_length == 1, 'only window=1 states supported'
+        # also assert you have enough entries to pick out a chunk
+        assert self.nb_entries >= np.max(chunk_length), 'not enough entries in the memory'
+        chunk_length = [int(l) for l in chunk_length]
+
+        # create the chunks
+        chunks = []
+        for i in range(num_samples):
+            accept = False
+            while not accept:
+                idx = int(sample_batch_indexes(chunk_length[i]+1, self.nb_entries, size=1)[0])
+                terminals = [self.terminals[idx-chunk_length[i]+t-1] for t in range(chunk_length[i])]
+                rewards = [self.rewards[idx-chunk_length[i]+t] for t in range(chunk_length[i])]
+                states = [self.observations[idx-chunk_length[i]+t] for t in range(chunk_length[i]+1)]
+                accept = criteria_checker(states, rewards, terminals)
+            states = [deepcopy(self.observations[idx-chunk_length[i]]),
+                    deepcopy(self.observations[idx-chunk_length[i]+1]),
+                    deepcopy(self.observations[idx])]
+            action = self.actions[idx-chunk_length[i]]
+            reward = self.rewards[idx-chunk_length[i]]
+            chunks.append((states, action, reward))
+        return chunks
