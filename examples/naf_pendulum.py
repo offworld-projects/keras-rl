@@ -5,10 +5,10 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 
-from rl.agents import NAFAgent
-from rl.memory import SequentialMemory
-from rl.random import OrnsteinUhlenbeckProcess
-from rl.core import Processor
+from kerasrl.agents import NAFAgent
+from kerasrl.memory import SequentialMemory
+from kerasrl.random import OrnsteinUhlenbeckProcess
+from kerasrl.core import Processor
 
 class PendulumProcessor(Processor):
     def process_reward(self, reward):

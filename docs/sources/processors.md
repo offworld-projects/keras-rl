@@ -2,7 +2,7 @@
 ### MultiInputProcessor
 
 ```python
-rl.processors.MultiInputProcessor(nb_inputs)
+kerasrl.processors.MultiInputProcessor(nb_inputs)
 ```
 
 Converts observations from an environment with multiple observations for use in a neural network
@@ -28,7 +28,7 @@ __Arguments__
 ### WhiteningNormalizerProcessor
 
 ```python
-rl.processors.WhiteningNormalizerProcessor()
+kerasrl.processors.WhiteningNormalizerProcessor()
 ```
 
 Normalizes the observations to have zero mean and standard deviation of one,

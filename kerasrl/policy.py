@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 
-from rl.util import *
+from kerasrl.util import *
 
 
 class Policy(object):
@@ -15,7 +15,7 @@ class Policy(object):
     - `select_action`
 
     # Arguments
-        agent (rl.core.Agent): Agent used
+        agent (kerasrl.core.Agent): Agent used
     """
     def _set_agent(self, agent):
         self.agent = agent

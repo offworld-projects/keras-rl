@@ -7,9 +7,9 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 
-from rl.agents import NAFAgent, DDPGAgent
-from rl.random import OrnsteinUhlenbeckProcess
-from rl.memory import SequentialMemory
+from kerasrl.agents import NAFAgent, DDPGAgent
+from kerasrl.random import OrnsteinUhlenbeckProcess
+from kerasrl.memory import SequentialMemory
 
 
 def test_cdqn():

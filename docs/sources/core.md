@@ -2,7 +2,7 @@
 ### Agent
 
 ```python
-rl.core.Agent(processor=None)
+kerasrl.core.Agent(processor=None)
 ```
 
 Abstract base class for all implemented agents.
@@ -34,7 +34,7 @@ __Arguments__
 ### Processor
 
 ```python
-rl.core.Processor()
+kerasrl.core.Processor()
 ```
 
 Abstract base class for implementing processors.
@@ -54,7 +54,7 @@ or write your own.
 ### Env
 
 ```python
-rl.core.Env()
+kerasrl.core.Env()
 ```
 
 The abstract environment class that is used by all agents. This class has the exact
@@ -68,7 +68,7 @@ implementation.
 ### Space
 
 ```python
-rl.core.Space()
+kerasrl.core.Space()
 ```
 
 Abstract model for a space that is used for the state and action spaces. This class has the

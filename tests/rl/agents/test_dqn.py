@@ -8,9 +8,9 @@ from numpy.testing import assert_allclose
 from keras.models import Sequential, Model
 from keras.layers import Input, Dense, Flatten, Concatenate
 
-from rl.agents.dqn import NAFLayer, DQNAgent, NAFAgent
-from rl.memory import SequentialMemory
-from rl.processors import MultiInputProcessor
+from kerasrl.agents.dqn import NAFLayer, DQNAgent, NAFAgent
+from kerasrl.memory import SequentialMemory
+from kerasrl.processors import MultiInputProcessor
 
 from ..util import MultiInputTestEnv
 

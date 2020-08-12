@@ -1,7 +1,7 @@
 import numpy as np
 import random
 
-from rl.core import Env
+from kerasrl.core import Env
 
 
 class MultiInputTestEnv(Env):

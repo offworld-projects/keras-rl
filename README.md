@@ -1,6 +1,6 @@
 # Deep Reinforcement Learning for Keras
-[![Build Status](https://api.travis-ci.org/keras-rl/keras-rl.svg?branch=master)](https://travis-ci.org/keras-rl/keras-rl)
-[![Documentation](https://readthedocs.org/projects/keras-rl/badge/)](http://keras-rl.readthedocs.io/)
+[![Build Status](https://api.travis-ci.org/keras-rl/keras-kerasrl.svg?branch=master)](https://travis-ci.org/keras-rl/keras-rl)
+[![Documentation](https://readthedocs.org/projects/keras-rl/badge/)](http://keras-kerasrl.readthedocs.io/)
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/keras-rl/keras-rl/blob/master/LICENSE)
 [![Join the chat at https://gitter.im/keras-rl/Lobby](https://badges.gitter.im/keras-rl/Lobby.svg)](https://gitter.im/keras-rl/Lobby)
 
@@ -38,11 +38,11 @@ As of today, the following algorithms have been implemented:
 - Double DQN [[3]](http://arxiv.org/abs/1509.06461)
 - Deep Deterministic Policy Gradient (DDPG) [[4]](http://arxiv.org/abs/1509.02971)
 - Continuous DQN (CDQN or NAF) [[6]](http://arxiv.org/abs/1603.00748)
-- Cross-Entropy Method (CEM) [[7]](http://learning.mpi-sws.org/mlss2016/slides/2016-MLSS-RL.pdf), [[8]](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.81.6579&rep=rep1&type=pdf)
+- Cross-Entropy Method (CEM) [[7]](http://learning.mpi-sws.org/mlss2016/slides/2016-MLSS-kerasrl.pdf), [[8]](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.81.6579&rep=rep1&type=pdf)
 - Dueling network DQN (Dueling DQN) [[9]](https://arxiv.org/abs/1511.06581)
 - Deep SARSA [[10]](http://people.inf.elte.hu/lorincz/Files/RL_2006/SuttonBook.pdf)
 
-You can find more information on each agent in the [doc](http://keras-rl.readthedocs.io/en/latest/agents/overview/).
+You can find more information on each agent in the [doc](http://keras-kerasrl.readthedocs.io/en/latest/agents/overview/).
 
 I'm currently working on the following algorithms, which can be found on the `experimental` branch:
 
@@ -97,7 +97,7 @@ That's it. However, if you want to run the examples, you'll also need the follow
 
 ## Documentation
 We are currently in the process of getting a proper documentation going. [The latest version of the
-documentation is available online](http://keras-rl.readthedocs.org). All contributions to the
+documentation is available online](http://keras-kerasrl.readthedocs.org). All contributions to the
 documentation are greatly appreciated!
 
 ## Support

@@ -1,7 +1,7 @@
 import numpy as np
 
-from rl.core import Processor
-from rl.util import WhiteningNormalizer
+from kerasrl.core import Processor
+from kerasrl.util import WhiteningNormalizer
 
 
 class MultiInputProcessor(Processor):

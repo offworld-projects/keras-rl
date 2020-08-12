@@ -14,61 +14,61 @@ if sys.version[0] == '2':
     reload(sys)
     sys.setdefaultencoding('utf8')
 
-import rl
-import rl.core
-import rl.processors
-import rl.agents
+import kerasrl
+import kerasrl.core
+import kerasrl.processors
+import kerasrl.agents
 
 
 EXCLUDE = {
-    
+
 }
 
 PAGES = [
     {
         'page': 'core.md',
-        'all_module_classes': [rl.core],
+        'all_module_classes': [kerasrl.core],
     },
     {
         'page': 'processors.md',
-        'all_module_classes': [rl.processors],
+        'all_module_classes': [kerasrl.processors],
     },
     {
         'page': 'agents/overview.md',
         'functions': [
-            rl.core.Agent.fit,
-            rl.core.Agent.test,
-            rl.core.Agent.compile,
-            rl.core.Agent.get_config,
-            rl.core.Agent.reset_states,
-            rl.core.Agent.load_weights,
-            rl.core.Agent.save_weights,
+            kerasrl.core.Agent.fit,
+            kerasrl.core.Agent.test,
+            kerasrl.core.Agent.compile,
+            kerasrl.core.Agent.get_config,
+            kerasrl.core.Agent.reset_states,
+            kerasrl.core.Agent.load_weights,
+            kerasrl.core.Agent.save_weights,
         ],
     },
     {
         'page': 'agents/dqn.md',
-        'classes': [rl.agents.DQNAgent],
+        'classes': [kerasrl.agents.DQNAgent],
     },
     {
         'page': 'agents/naf.md',
-        'classes': [rl.agents.NAFAgent],
+        'classes': [kerasrl.agents.NAFAgent],
     },
     {
         'page': 'agents/ddpg.md',
-        'classes': [rl.agents.DDPGAgent],
+        'classes': [kerasrl.agents.DDPGAgent],
     },
     {
         'page': 'agents/sarsa.md',
-        'classes': [rl.agents.SARSAAgent],
+        'classes': [kerasrl.agents.SARSAAgent],
     },
     {
         'page': 'agents/cem.md',
-        'classes': [rl.agents.CEMAgent],
+        'classes': [kerasrl.agents.CEMAgent],
     },
 ]
 
 
-ROOT_MODULE_NAME = 'rl.'
+ROOT_MODULE_NAME = 'kerasrl.'
 
 
 def get_earliest_class_that_defined_member(member, cls):

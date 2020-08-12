@@ -5,9 +5,9 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
 
-from rl.agents.dqn import DQNAgent
-from rl.policy import BoltzmannQPolicy
-from rl.memory import SequentialMemory
+from kerasrl.agents.dqn import DQNAgent
+from kerasrl.policy import BoltzmannQPolicy
+from kerasrl.memory import SequentialMemory
 
 
 ENV_NAME = 'CartPole-v0'

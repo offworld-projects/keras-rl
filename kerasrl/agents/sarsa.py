@@ -7,11 +7,11 @@ from keras.models import Model
 from keras.layers import Input, Lambda
 import keras.backend as K
 
-from rl.core import Agent
-from rl.agents.dqn import mean_q
-from rl.util import huber_loss
-from rl.policy import EpsGreedyQPolicy, GreedyQPolicy
-from rl.util import get_object_config
+from kerasrl.core import Agent
+from kerasrl.agents.dqn import mean_q
+from kerasrl.util import huber_loss
+from kerasrl.policy import EpsGreedyQPolicy, GreedyQPolicy
+from kerasrl.util import get_object_config
 
 
 class SARSAAgent(Agent):

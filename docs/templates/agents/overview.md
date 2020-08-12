@@ -2,11 +2,11 @@
 
 | Name                   | Implementation         | Observation Space  | Action Space   | 
 | ---------------------- |------------------------| -------------------| ---------------|
-| [DQN](/agents/dqn)     | `rl.agents.DQNAgent`   | discrete or continuous | discrete   | 
-| [DDPG](/agents/ddpg)   | `rl.agents.DDPGAgent`  | discrete or continuous | continuous | 
-| [NAF](/agents/naf)     | `rl.agents.NAFAgent`   | discrete or continuous | continuous |
-| [CEM](/agents/cem)     | `rl.agents.CEMAgent`   | discrete or continuous | discrete   |
-| [SARSA](/agents/sarsa) | `rl.agents.SARSAAgent` | discrete or continuous | discrete   | 
+| [DQN](/agents/dqn)     | `kerasrl.agents.DQNAgent`   | discrete or continuous | discrete   | 
+| [DDPG](/agents/ddpg)   | `kerasrl.agents.DDPGAgent`  | discrete or continuous | continuous | 
+| [NAF](/agents/naf)     | `kerasrl.agents.NAFAgent`   | discrete or continuous | continuous |
+| [CEM](/agents/cem)     | `kerasrl.agents.CEMAgent`   | discrete or continuous | discrete   |
+| [SARSA](/agents/sarsa) | `kerasrl.agents.SARSAAgent` | discrete or continuous | discrete   | 
 
 ---
 

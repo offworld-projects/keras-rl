@@ -6,7 +6,7 @@
 ### SARSAAgent
 
 ```python
-rl.agents.sarsa.SARSAAgent(model, nb_actions, policy=None, test_policy=None, gamma=0.99, nb_steps_warmup=10, train_interval=1, delta_clip=inf)
+kerasrl.agents.sarsa.SARSAAgent(model, nb_actions, policy=None, test_policy=None, gamma=0.99, nb_steps_warmup=10, train_interval=1, delta_clip=inf)
 ```
 
 Write me

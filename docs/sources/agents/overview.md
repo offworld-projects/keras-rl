@@ -2,11 +2,11 @@
 
 | Name                   | Implementation         | Observation Space  | Action Space   | 
 | ---------------------- |------------------------| -------------------| ---------------|
-| [DQN](/agents/dqn)     | `rl.agents.DQNAgent`   | discrete or continuous | discrete   | 
-| [DDPG](/agents/ddpg)   | `rl.agents.DDPGAgent`  | discrete or continuous | continuous | 
-| [NAF](/agents/naf)     | `rl.agents.NAFAgent`   | discrete or continuous | continuous |
-| [CEM](/agents/cem)     | `rl.agents.CEMAgent`   | discrete or continuous | discrete   |
-| [SARSA](/agents/sarsa) | `rl.agents.SARSAAgent` | discrete or continuous | discrete   | 
+| [DQN](/agents/dqn)     | `kerasrl.agents.DQNAgent`   | discrete or continuous | discrete   | 
+| [DDPG](/agents/ddpg)   | `kerasrl.agents.DDPGAgent`  | discrete or continuous | continuous | 
+| [NAF](/agents/naf)     | `kerasrl.agents.NAFAgent`   | discrete or continuous | continuous |
+| [CEM](/agents/cem)     | `kerasrl.agents.CEMAgent`   | discrete or continuous | discrete   |
+| [SARSA](/agents/sarsa) | `kerasrl.agents.SARSAAgent` | discrete or continuous | discrete   | 
 
 ---
 
@@ -35,7 +35,7 @@ __Arguments__
 - __action_repetition__ (integer): Number of times the agent repeats the same action without
 	observing the environment again. Setting this to a value > 1 can be useful
 	if a single action only has a very small effect on the environment.
-- __callbacks__ (list of `keras.callbacks.Callback` or `rl.callbacks.Callback` instances):
+- __callbacks__ (list of `keras.callbacks.Callback` or `kerasrl.callbacks.Callback` instances):
 	List of callbacks to apply during training. See [callbacks](/callbacks) for details.
 - __verbose__ (integer): 0 for no logging, 1 for interval logging (compare `log_interval`), 2 for episode logging
 - __visualize__ (boolean): If `True`, the environment is visualized during training. However,

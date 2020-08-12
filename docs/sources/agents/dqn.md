@@ -6,7 +6,7 @@
 ### DQNAgent
 
 ```python
-rl.agents.dqn.DQNAgent(model, policy=None, test_policy=None, enable_double_dqn=True, enable_dueling_network=False, dueling_type='avg')
+kerasrl.agents.dqn.DQNAgent(model, policy=None, test_policy=None, enable_double_dqn=True, enable_dueling_network=False, dueling_type='avg')
 ```
 
 Write me

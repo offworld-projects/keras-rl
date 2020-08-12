@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from rl.memory import SequentialMemory, RingBuffer
+from kerasrl.memory import SequentialMemory, RingBuffer
 
 
 def test_ring_buffer():

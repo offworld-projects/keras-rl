@@ -5,8 +5,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
 
-from rl.agents import SARSAAgent
-from rl.policy import BoltzmannQPolicy
+from kerasrl.agents import SARSAAgent
+from kerasrl.policy import BoltzmannQPolicy
 
 
 ENV_NAME = 'CartPole-v0'

@@ -8,7 +8,7 @@ from keras.layers import Input, Dense, Concatenate
 from keras.optimizers import SGD
 import keras.backend as K
 
-from rl.util import clone_optimizer, clone_model, huber_loss, WhiteningNormalizer
+from kerasrl.util import clone_optimizer, clone_model, huber_loss, WhiteningNormalizer
 
 
 def test_clone_sequential_model():

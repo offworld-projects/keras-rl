@@ -2,8 +2,8 @@ Please make sure that the boxes below are checked before you submit your issue. 
 
 Thank you!
 
-- [ ] Check that you are up-to-date with the master branch of Keras-RL. You can update with:
-`pip install git+git://github.com/keras-rl/keras-rl.git --upgrade --no-deps`
+- [ ] Check that you are up-to-date with the master branch of Keras-kerasrl. You can update with:
+`pip install git+git://github.com/keras-rl/keras-kerasrl.git --upgrade --no-deps`
 
 - [ ] Check that you are up-to-date with the master branch of Keras. You can update with:
 `pip install git+git://github.com/fchollet/keras.git --upgrade --no-deps`

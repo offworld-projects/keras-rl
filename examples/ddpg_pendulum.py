@@ -5,9 +5,9 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 
-from rl.agents import DDPGAgent
-from rl.memory import SequentialMemory
-from rl.random import OrnsteinUhlenbeckProcess
+from kerasrl.agents import DDPGAgent
+from kerasrl.memory import SequentialMemory
+from kerasrl.random import OrnsteinUhlenbeckProcess
 
 
 ENV_NAME = 'Pendulum-v0'

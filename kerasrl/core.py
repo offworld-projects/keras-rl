@@ -5,7 +5,7 @@ from copy import deepcopy
 import numpy as np
 from keras.callbacks import History
 
-from rl.callbacks import (
+from kerasrl.callbacks import (
     CallbackList,
     TestLogger,
     TrainEpisodeLogger,
@@ -61,7 +61,7 @@ class Agent(object):
             action_repetition (integer): Number of times the agent repeats the same action without
                 observing the environment again. Setting this to a value > 1 can be useful
                 if a single action only has a very small effect on the environment.
-            callbacks (list of `keras.callbacks.Callback` or `rl.callbacks.Callback` instances):
+            callbacks (list of `keras.callbacks.Callback` or `kerasrl.callbacks.Callback` instances):
                 List of callbacks to apply during training. See [callbacks](/callbacks) for details.
             verbose (integer): 0 for no logging, 1 for interval logging (compare `log_interval`), 2 for episode logging
             visualize (boolean): If `True`, the environment is visualized during training. However,
@@ -253,7 +253,7 @@ class Agent(object):
             action_repetition (integer): Number of times the agent repeats the same action without
                 observing the environment again. Setting this to a value > 1 can be useful
                 if a single action only has a very small effect on the environment.
-            callbacks (list of `keras.callbacks.Callback` or `rl.callbacks.Callback` instances):
+            callbacks (list of `keras.callbacks.Callback` or `kerasrl.callbacks.Callback` instances):
                 List of callbacks to apply during training. See [callbacks](/callbacks) for details.
             verbose (integer): 0 for no logging, 1 for interval logging (compare `log_interval`), 2 for episode logging
             visualize (boolean): If `True`, the environment is visualized during training. However,

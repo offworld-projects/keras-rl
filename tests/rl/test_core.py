@@ -3,8 +3,8 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from rl.memory import SequentialMemory
-from rl.core import Agent, Env, Processor
+from kerasrl.memory import SequentialMemory
+from kerasrl.core import Agent, Env, Processor
 
 
 class TestEnv(Env):

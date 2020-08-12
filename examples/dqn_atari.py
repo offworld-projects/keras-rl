@@ -10,11 +10,11 @@ from keras.layers import Dense, Activation, Flatten, Convolution2D, Permute
 from keras.optimizers import Adam
 import keras.backend as K
 
-from rl.agents.dqn import DQNAgent
-from rl.policy import LinearAnnealedPolicy, BoltzmannQPolicy, EpsGreedyQPolicy
-from rl.memory import SequentialMemory
-from rl.core import Processor
-from rl.callbacks import FileLogger, ModelIntervalCheckpoint
+from kerasrl.agents.dqn import DQNAgent
+from kerasrl.policy import LinearAnnealedPolicy, BoltzmannQPolicy, EpsGreedyQPolicy
+from kerasrl.memory import SequentialMemory
+from kerasrl.core import Processor
+from kerasrl.callbacks import FileLogger, ModelIntervalCheckpoint
 
 
 INPUT_SHAPE = (84, 84)

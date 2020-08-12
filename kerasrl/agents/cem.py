@@ -6,8 +6,8 @@ import numpy as np
 import keras.backend as K
 from keras.models import Model
 
-from rl.core import Agent
-from rl.util import *
+from kerasrl.core import Agent
+from kerasrl.util import *
 
 class CEMAgent(Agent):
     """Write me

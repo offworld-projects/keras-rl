@@ -6,7 +6,7 @@
 ### NAFAgent
 
 ```python
-rl.agents.dqn.NAFAgent(V_model, L_model, mu_model, random_process=None, covariance_mode='full')
+kerasrl.agents.dqn.NAFAgent(V_model, L_model, mu_model, random_process=None, covariance_mode='full')
 ```
 
 Write me

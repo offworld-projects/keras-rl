@@ -8,9 +8,9 @@ from numpy.testing import assert_allclose
 from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Flatten, Concatenate
 
-from rl.agents.cem import CEMAgent
-from rl.memory import EpisodeParameterMemory
-from rl.processors import MultiInputProcessor
+from kerasrl.agents.cem import CEMAgent
+from kerasrl.memory import EpisodeParameterMemory
+from kerasrl.processors import MultiInputProcessor
 
 from ..util import MultiInputTestEnv
 
